@@ -18,7 +18,9 @@ class Config:
     def __init__(self, config_file=ConfigDefaults.config_file):
         self.config_file = config_file
         config = configparser.RawConfigParser()
-        config.read_file(open(self.config_file))
+
+        f = open(self.config_file)
+        config.read_file(f)
 
         try:
             self.owner_id = config.get('data', 'owner_id', fallback=ConfigDefaults.owner_id)
@@ -26,6 +28,8 @@ class Config:
             self.command_prefix = config.get('data', 'command_prefix', fallback=ConfigDefaults.command_prefix)
             self.xmc_script_path = config.get('data', 'xmc_script_path', fallback=ConfigDefaults.xmc_script_path)
             self.privileged_ids = set(json.loads(config.get('data', 'privileged_ids', fallback=ConfigDefaults.privileged_ids)))
+
+            f.close()
         except configparser.NoSectionError:
             print("[ut-bot-config]: A section is missing in your config file!")
             sys.exit()
@@ -35,3 +39,5 @@ class Config:
         except configparser.Error:
             print("[ut-bot-config]: Your config file is broken! Please check if the config file has all the needed options inside it.")
             sys.exit()
+        except ResourceWarning:
+            f.close()

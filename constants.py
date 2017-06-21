@@ -1,4 +1,4 @@
-DESCRIPTION = "Random number generator and random string chooser."
-VERSION = "v0.1"
-RELEASE_DATE = "19-06-2017"
+DESCRIPTION = "Bot for XMC Server Script (https://github.com/XxMoNsTeR/XMC-Server-Script)"
+VERSION = "v1.0"
+RELEASE_DATE = "21-06-2017"
 AUTHOR = "XxMoNsTeR"
