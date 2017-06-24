@@ -50,11 +50,11 @@ class Bot(discord.Client):
         print("Logged in")
         print("Name: " + self.user.name)
         print("ID: " + self.user.id)
-        print("Discord version: " + discord.__version__)
+        print("Discord API version: " + discord.__version__)
         print("Bot version: " + constants.VERSION)
 
     @asyncio.coroutine
-    def cmd_help(self, channel, command=None):
+    def cmd_help(self, msg, command=None):
         """
         Usage: {command_prefix}help [command]
 
@@ -62,33 +62,67 @@ class Bot(discord.Client):
 
         List of available commands:
             {command_prefix}xmc (privileged only)
+            {command_prefix}reload (privileged only)
+            {command_prefix}setgame (privileged only)
             {command_prefix}random
             {command_prefix}ping
         """
 
         if command is None:
-            yield from self.send_message(channel, "```\n" + self.cmd_help.__doc__.format(command_prefix=self.config.command_prefix) + "```")
+            yield from self.send_message(msg.channel, "```\n" + self.cmd_help.__doc__.format(command_prefix=self.config.command_prefix) + "```")
         else:
             try:
                 cmd = getattr(self, 'cmd_%s' % command, None)
-                yield from self.send_message(channel, "```\n" + cmd.__doc__.format(command_prefix=self.config.command_prefix) + "```")
+                yield from self.send_message(msg.channel, "```\n" + cmd.__doc__.format(command_prefix=self.config.command_prefix) + "```")
             except AttributeError:
-                yield from self.send_message(channel, "`That command doesn't exist!`")
+                yield from self.send_message(msg.channel, "`That command doesn't exist!`")
 
     @privileged_only
     @asyncio.coroutine
-    def cmd_xmc(self, channel, args: str):
+    def cmd_xmc(self, msg, *args):
         """
         Usage: {command_prefix}xmc [arg]
 
         To check detailed help about this command use {command_prefix}xmc -h
         """
 
+        args = ' '.join(list(args))
         output = getoutput("python3.4 " + self.config.xmc_script_path + "/start.py " + args)
-        yield from self.send_message(channel, '`' + output + '`')
+        if len(output) > 2000:
+            yield from self.send_message(msg.channel, "Because the output contains " + str(len(output)) +
+                                         " characters (over 2000 characters), it will only show the first"
+                                         " 20 lines and the last 20 lines of the output")
+            output_lines = output.split('\n')
+            output = '\n'.join(output_lines[:20]) + '\n.........\n' + '\n'.join(output_lines[-20:])
+
+        yield from self.send_message(msg.channel, '`' + output + '`')
+
+    @privileged_only
+    @asyncio.coroutine
+    def cmd_reload(self, msg):
+        """
+        Usage: {command_prefix}reload
+
+        Reloads the configuration of the bot.
+        """
+        self.config = Config(ConfigDefaults.config_file)
+        yield from self.send_message(msg.channel, "`Reloaded configuration.`")
+
+    @privileged_only
+    @asyncio.coroutine
+    def cmd_setgame(self, msg, *args):
+        """
+        Usage: {command_prefix}setgame [game name]
+
+        Sets the game name for the bot.
+        """
+        game = ' '.join(list(args))
+        g = discord.Game(name=game)
+        yield from self.change_presence(game=g)
+        yield from self.send_message(msg.channel, "`Game changed to '" + g.name + "'`")
 
     @asyncio.coroutine
-    def cmd_random(self, channel, *args):
+    def cmd_random(self, msg, *args):
         """
         Usage: {command_prefix}random [choice (c), number (n)] c[choice 1, choice 2, ...]/n[min value, max value]
 
@@ -97,22 +131,22 @@ class Bot(discord.Client):
         if args[0] in ('c', 'choice'):
             split_strings = args[1].split(',')
             result = split_strings[randint(0, len(split_strings) - 1)]
-            yield from self.send_message(channel, "`Result: " + result + "`")
+            yield from self.send_message(msg.channel, "`Result: " + result + "`")
         elif args[0] in ('n', 'number'):
             split_numbers = args[1].split(',')
             min_value = int(split_numbers[0])
             max_value = int(split_numbers[1])
             result = str(randint(min_value, max_value))
-            yield from self.send_message(channel, "`Result: " + result + "`")
+            yield from self.send_message(msg.channel, "`Result: " + result + "`")
 
     @asyncio.coroutine
-    def cmd_ping(self, channel):
+    def cmd_ping(self, msg):
         """
         Usage: {command_prefix}ping
 
         Shows the ping of the bot.
         """
-        yield from self.send_message(channel, "`Pong!`")
+        yield from self.send_message(msg.channel, "`Pong!`")
 
     @asyncio.coroutine
     def on_message(self, message):
@@ -125,7 +159,7 @@ class Bot(discord.Client):
             command = command[len(self.config.command_prefix):].lower().strip()
 
             try:
-                handler = getattr(self, 'cmd_%s' % command, None)
-                yield from handler(message.channel, *args)
+                handler = getattr(self, 'cmd_%s' % command)
+                yield from handler(message, *args)
             except AttributeError:
                 pass
